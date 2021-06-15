@@ -15,7 +15,8 @@ from singer_encodings import (
 )
 from tap_s3_csv import (
     utils,
-    s3
+    s3,
+    munge
 )
 
 LOGGER = singer.get_logger()
@@ -172,7 +173,7 @@ def sync_csv_file(config, file_handle, s3_path, table_spec, stream):
             # index zero, +1 for header row
             s3.SDC_SOURCE_LINENO_COLUMN: records_synced + 2
         }
-        rec = {**row, **custom_columns}
+        rec = {**munge.munge(row, config["munge"]), **custom_columns}
 
         with Transformer() as transformer:
             to_write = transformer.transform(rec, stream.schema.to_dict(), metadata.to_map(stream.metadata))
@@ -206,7 +207,7 @@ def sync_jsonl_file(config, iterator, s3_path, table_spec, stream):
             # index zero and then starting from 1
             s3.SDC_SOURCE_LINENO_COLUMN: records_synced + 1
         }
-        rec = {**row, **custom_columns}
+        rec = {**munge.munge(row), **custom_columns}
 
         with Transformer() as transformer:
             to_write = transformer.transform(rec, stream.schema.to_dict(), metadata.to_map(stream.metadata))

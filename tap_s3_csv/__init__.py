@@ -6,11 +6,11 @@ from singer import metadata
 from tap_s3_csv.discover import discover_streams
 from tap_s3_csv import s3
 from tap_s3_csv.sync import sync_stream
-from tap_s3_csv.config import CONFIG_CONTRACT
+from tap_s3_csv.config import CONFIG_CONTRACT, MUNGE_CONTRACT
 
 LOGGER = singer.get_logger()
 
-REQUIRED_CONFIG_KEYS = ["start_date", "bucket"]
+REQUIRED_CONFIG_KEYS = ["start_date", "bucket", "search_prefix", "search_pattern", "table_name", "key_properties", "munging"]
 
 
 def do_discover(config):
@@ -32,7 +32,11 @@ def do_sync(config, catalog, state):
     for stream in catalog.streams:
         stream_name = stream.tap_stream_id
         mdata = metadata.to_map(stream.metadata)
-        table_spec = next(s for s in config['tables'] if s['table_name'] == stream_name)
+        table_spec = {
+            "table_name": config["table_name"],
+            "key_properties": config["key_properties"],
+            "search_pattern": config["search_pattern"]
+        }
         if not stream_is_selected(mdata):
             LOGGER.info("%s: Skipping - not selected", stream_name)
             continue
@@ -66,12 +70,17 @@ def validate_table_config(config):
     # Reassign the config tables to the validated object
     return CONFIG_CONTRACT(tables_config)
 
+def validate_munge_config(config):
+    munge_config = json.loads(config['munging'])
+    return MUNGE_CONTRACT(munge_config)
+
 @singer.utils.handle_top_exception(LOGGER)
 def main():
     args = singer.utils.parse_args(REQUIRED_CONFIG_KEYS)
     config = args.config
 
-    config['tables'] = validate_table_config(config)
+    # config['tables'] = validate_table_config(config)
+    config['munge'] = validate_munge_config(config)
 
     try:
         for page in s3.list_files_in_bucket(config['bucket']):
@@ -83,7 +92,6 @@ def main():
     if args.discover:
         do_discover(args.config)
     elif args.catalog:
-        print(args.catalog)
         do_sync(config, args.catalog, args.state)
 
 
