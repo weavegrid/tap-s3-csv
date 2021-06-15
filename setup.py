@@ -3,9 +3,9 @@
 from setuptools import setup
 
 setup(name='tap-s3-csv',
-      version='1.3.0',
-      description='Singer.io tap for extracting CSV files from S3',
-      author='Stitch',
+      version='1.4.0',
+      description='WeaveGrid adaptation of Singer.io tap for extracting CSV files from S3',
+      author='Beau Cronin',
       url='https://singer.io',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
       py_modules=['tap_s3_csv'],
