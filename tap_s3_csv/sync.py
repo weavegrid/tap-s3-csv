@@ -160,7 +160,7 @@ def sync_csv_file(config, file_handle, s3_path, table_spec, stream):
     csv.field_size_limit(sys.maxsize)
 
     iterator = csv_helper.get_row_iterator(
-        file_handle, table_spec, stream["schema"]["properties"].keys(), True)
+        file_handle, table_spec, stream.schema.properties.keys(), True)
 
     records_synced = 0
 
@@ -175,7 +175,7 @@ def sync_csv_file(config, file_handle, s3_path, table_spec, stream):
         rec = {**row, **custom_columns}
 
         with Transformer() as transformer:
-            to_write = transformer.transform(rec, stream['schema'], metadata.to_map(stream['metadata']))
+            to_write = transformer.transform(rec, stream.schema.to_dict(), metadata.to_map(stream.metadata))
 
         singer.write_record(table_name, to_write)
         records_synced += 1
@@ -209,7 +209,7 @@ def sync_jsonl_file(config, iterator, s3_path, table_spec, stream):
         rec = {**row, **custom_columns}
 
         with Transformer() as transformer:
-            to_write = transformer.transform(rec, stream['schema'], metadata.to_map(stream['metadata']))
+            to_write = transformer.transform(rec, stream.schema.to_dict(), metadata.to_map(stream.metadata))
         # collecting the value which was removed in transform to add those in _sdc_extra
         value = [ {field:rec[field]} for field in set(rec) - set(to_write) ]
 
@@ -225,7 +225,7 @@ def sync_jsonl_file(config, iterator, s3_path, table_spec, stream):
 
         # Transform again to validate _sdc_extra value.
         with Transformer() as transformer:
-            update_to_write = transformer.transform(update_to_write, stream['schema'], metadata.to_map(stream['metadata']))
+            update_to_write = transformer.transform(update_to_write, stream.schema.to_dict(), metadata.to_map(stream.metadata))
 
         singer.write_record(table_name, update_to_write)
         records_synced += 1
