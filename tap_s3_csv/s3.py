@@ -58,29 +58,31 @@ class AssumeRoleProvider():
 
 @retry_pattern()
 def setup_aws_client(config):
-    role_arn = "arn:aws:iam::{}:role/{}".format(config['account_id'].replace('-', ''),
-                                                config['role_name'])
-    session = Session()
-    fetcher = AssumeRoleCredentialFetcher(
-        session.create_client,
-        session.get_credentials(),
-        role_arn,
-        extra_args={
-            'DurationSeconds': 3600,
-            'RoleSessionName': 'TapS3CSV',
-            'ExternalId': config['external_id']
-        },
-        cache=JSONFileCache()
-    )
+    # only set up a fancy default session if we're assuming a role
+    if "role_name" in config and "account_id" in config and config["role_name"] and config["account_id"]:
+        role_arn = "arn:aws:iam::{}:role/{}".format(config['account_id'].replace('-', ''),
+                                                    config['role_name'])
+        session = Session()
+        fetcher = AssumeRoleCredentialFetcher(
+            session.create_client,
+            session.get_credentials(),
+            role_arn,
+            extra_args={
+                'DurationSeconds': 3600,
+                'RoleSessionName': 'TapS3CSV',
+                'ExternalId': config['external_id']
+            },
+            cache=JSONFileCache()
+        )
 
-    refreshable_session = Session()
-    refreshable_session.register_component(
-        'credential_provider',
-        CredentialResolver([AssumeRoleProvider(fetcher)])
-    )
+        refreshable_session = Session()
+        refreshable_session.register_component(
+            'credential_provider',
+            CredentialResolver([AssumeRoleProvider(fetcher)])
+        )
 
-    LOGGER.info("Attempting to assume_role on RoleArn: %s", role_arn)
-    boto3.setup_default_session(botocore_session=refreshable_session)
+        LOGGER.info("Attempting to assume_role on RoleArn: %s", role_arn)
+        boto3.setup_default_session(botocore_session=refreshable_session)
 
 
 def get_sampled_schema_for_table(config, table_spec):
@@ -396,6 +398,8 @@ def list_files_in_bucket(bucket, search_prefix=None):
     paginator = s3_client.get_paginator('list_objects_v2')
     pages = 0
     for page in paginator.paginate(**args):
+        if 'Contents' not in page:
+            break
         pages += 1
         LOGGER.debug("On page %s", pages)
         s3_object_count += len(page['Contents'])
