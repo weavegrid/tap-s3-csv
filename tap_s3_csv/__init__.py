@@ -1,6 +1,7 @@
 import json
 import sys
 import singer
+import yaml
 
 from singer import metadata
 from tap_s3_csv.discover import discover_streams
@@ -10,7 +11,7 @@ from tap_s3_csv.config import CONFIG_CONTRACT, MUNGE_CONTRACT
 
 LOGGER = singer.get_logger()
 
-REQUIRED_CONFIG_KEYS = ["start_date", "bucket", "search_prefix", "search_pattern", "table_name", "key_properties", "munging"]
+REQUIRED_CONFIG_KEYS = ["start_date", "bucket", "search_prefix", "search_pattern", "table_name", "key_properties", "munge_config_file"]
 
 
 def do_discover(config):
@@ -51,36 +52,27 @@ def do_sync(config, catalog, state):
 
     LOGGER.info('Done syncing.')
 
-def validate_table_config(config):
-    # Parse the incoming tables config as JSON
-    tables_config = json.loads(config['tables'])
 
-    for table_config in tables_config:
-        if ('search_prefix' in table_config) and (table_config.get('search_prefix') is None):
-            table_config.pop('search_prefix')
-        if table_config.get('key_properties') == "" or table_config.get('key_properties') is None:
-            table_config['key_properties'] = []
-        elif table_config.get('key_properties') and isinstance(table_config['key_properties'], str):
-            table_config['key_properties'] = [s.strip() for s in table_config['key_properties'].split(',')]
-        if table_config.get('date_overrides') == "" or table_config.get('date_overrides') is None:
-            table_config['date_overrides'] = []
-        elif table_config.get('date_overrides') and isinstance(table_config['date_overrides'], str):
-            table_config['date_overrides'] = [s.strip() for s in table_config['date_overrides'].split(',')]
-
-    # Reassign the config tables to the validated object
-    return CONFIG_CONTRACT(tables_config)
-
-def validate_munge_config(config):
-    munge_config = json.loads(config['munging'])
-    return MUNGE_CONTRACT(munge_config)
+def load_munge_config(config):
+    munge_config_file = config.get("munge_config_file", None)
+    if munge_config_file:
+        with open(munge_config_file) as fd:
+            munge_config = yaml.safe_load(fd)
+            return MUNGE_CONTRACT(munge_config)
+    else:
+        LOGGER.warning("No munge config file argument found")
+        return None
 
 @singer.utils.handle_top_exception(LOGGER)
 def main():
     args = singer.utils.parse_args(REQUIRED_CONFIG_KEYS)
     config = args.config
+    LOGGER.info(config["key_properties"])
+    config["key_properties"] = json.loads(config["key_properties"])
+    LOGGER.info(config["key_properties"])
 
-    # config['tables'] = validate_table_config(config)
-    config['munge'] = validate_munge_config(config)
+
+    config['munge'] = load_munge_config(config)
 
     try:
         for page in s3.list_files_in_bucket(config['bucket']):

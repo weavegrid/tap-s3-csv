@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='tap-s3-csv',
-      version='1.4.0',
+      version='1.4.6',
       description='WeaveGrid adaptation of Singer.io tap for extracting CSV files from S3',
       author='Beau Cronin',
       url='https://singer.io',
@@ -14,7 +14,8 @@ setup(name='tap-s3-csv',
           'boto3==1.9.57',
           'singer-encodings==0.1.0',
           'singer-python==5.12.1',
-          'voluptuous==0.10.5'
+          'voluptuous==0.10.5',
+          'PyYAML==5.4.1'
       ],
       extras_require={
           'dev': [
