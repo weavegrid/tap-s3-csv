@@ -2,6 +2,7 @@ import json
 import sys
 import singer
 import yaml
+from copy import deepcopy
 
 from singer import metadata
 from tap_s3_csv.discover import discover_streams
@@ -44,7 +45,17 @@ def do_sync(config, catalog, state):
 
         singer.write_state(state)
         key_properties = metadata.get(mdata, (), 'table-key-properties')
-        singer.write_schema(stream_name, stream.schema.to_dict(), key_properties)
+
+        # Don't send unsupported properties to the target 
+        target_schema = deepcopy(stream.schema.to_dict())
+        for item in stream.metadata:
+            if item.get("metadata", {}).get("inclusion", "") == "unsupported":
+                breadcrumb = item.get("breadcrumb", [])
+                if len(breadcrumb) == 2:
+                    del target_schema["properties"][breadcrumb[1]]
+
+        LOGGER.info(f"Writing schema for stream {stream_name} with key properties {key_properties}: {target_schema}")
+        singer.write_schema(stream_name, target_schema, key_properties)
 
         LOGGER.info("%s: Starting sync", stream_name)
         counter_value = sync_stream(config, state, table_spec, stream)

@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(name='tap-s3-csv',
-      version='1.4.6',
+      version='1.4.8',
       description='WeaveGrid adaptation of Singer.io tap for extracting CSV files from S3',
       author='Beau Cronin',
       url='https://singer.io',

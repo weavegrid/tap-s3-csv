@@ -166,6 +166,8 @@ def sync_csv_file(config, file_handle, s3_path, table_spec, stream):
     records_synced = 0
 
     for row in iterator:
+        # csv_helper in singer_encodings passes along extra values, but we will not do this
+        del row["_sdc_extra"]
         custom_columns = {
             s3.SDC_SOURCE_BUCKET_COLUMN: bucket,
             s3.SDC_SOURCE_FILE_COLUMN: s3_path,
@@ -211,24 +213,26 @@ def sync_jsonl_file(config, iterator, s3_path, table_spec, stream):
 
         with Transformer() as transformer:
             to_write = transformer.transform(rec, stream.schema.to_dict(), metadata.to_map(stream.metadata))
-        # collecting the value which was removed in transform to add those in _sdc_extra
-        value = [ {field:rec[field]} for field in set(rec) - set(to_write) ]
 
-        if value:
-            LOGGER.warning(
-                "\"%s\" is not found in catalog and its value will be stored in the \"_sdc_extra\" field.", value)
-            extra_data = {
-                s3.SDC_EXTRA_COLUMN: value
-            }
-            update_to_write = {**to_write,**extra_data}
-        else:
-            update_to_write = to_write
+        # Do not collect and encode the values that were not used        
+        # # collecting the value which was removed in transform to add those in _sdc_extra
+        # value = [ {field:rec[field]} for field in set(rec) - set(to_write) ]
 
-        # Transform again to validate _sdc_extra value.
-        with Transformer() as transformer:
-            update_to_write = transformer.transform(update_to_write, stream.schema.to_dict(), metadata.to_map(stream.metadata))
+        # if value:
+        #     LOGGER.warning(
+        #         "\"%s\" is not found in catalog and its value will be stored in the \"_sdc_extra\" field.", value)
+        #     extra_data = {
+        #         s3.SDC_EXTRA_COLUMN: value
+        #     }
+        #     update_to_write = {**to_write,**extra_data}
+        # else:
+        #     update_to_write = to_write
 
-        singer.write_record(table_name, update_to_write)
+        # # Transform again to validate _sdc_extra value.
+        # with Transformer() as transformer:
+        #     update_to_write = transformer.transform(update_to_write, stream.schema.to_dict(), metadata.to_map(stream.metadata))
+
+        singer.write_record(table_name, to_write)
         records_synced += 1
 
     return records_synced
